@@ -253,7 +253,7 @@ export default function App() {
             <img src={logoImg} alt="logo" style={{ height: "44px", width: "auto" }} />
             <div>
               <div style={{ fontSize: "12px", color: COLORS.textSub, fontWeight: 600 }}>{monthLabel(selectedMonth)}</div>
-          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 800, letterSpacing: "-0.5px", color: "#000000" }}>Expense Tracker</h1>            </div>
+          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 800, letterSpacing: "-0.5px", color: "#000000" }}></h1>            </div>
           </div>
           <button onClick={() => setShowForm(true)} style={{ background: COLORS.primary, color: "#fff", border: "none", borderRadius: "14px", padding: "10px 20px", fontWeight: 700, fontSize: "14px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>+ เพิ่มรายการ</button>
         </div>
