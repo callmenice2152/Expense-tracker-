@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip
 } from "recharts";
+import logoImg from "./assets/logo.png";
 
 // --- Configuration & Constants ---
 const INCOME_CATS = ["เงินเดือน", "ธุรกิจ", "ฟรีแลนซ์", "ลงทุน", "โบนัส", "อื่นๆ"];
@@ -214,12 +215,19 @@ export default function App() {
       `}</style>
       
       <div style={s.container}>
-        {/* Header */}
+        {/* Header (แก้ไขโครงสร้าง <div> ตรงนี้ให้ถูกต้อง) */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, marginTop: 12 }}>
-          <div>
-            <div style={{ fontSize: 14, color: Colors.textSub, fontWeight: 500, marginBottom: 4 }}>{monthLabel(selectedMonth)}</div>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em' }}>ภาพรวมบัญชี</h1>
+          
+          {/* ส่วนของโลโก้และข้อความ (ฝั่งซ้าย) */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <img src={logoImg} alt="logo" style={{ height: 44, width: "auto" }} />
+            <div>
+              <div style={{ fontSize: 14, color: Colors.textSub, fontWeight: 500, marginBottom: 4 }}>{monthLabel(selectedMonth)}</div>
+              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em' }}>ภาพรวมบัญชี</h1>
+            </div>
           </div>
+
+          {/* ปุ่มเพิ่มรายการ (ฝั่งขวา) */}
           <button onClick={() => setShowForm(true)} style={{ background: Colors.primary, color: "#fff", border: "none", borderRadius: 14, padding: "10px 20px", fontWeight: 600, cursor: "pointer", fontSize: 14, boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}>
             + เพิ่มรายการ
           </button>
