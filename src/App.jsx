@@ -32,8 +32,19 @@ const CHART_COLORS = ["#6366f1", "#8b5cf6", "#ec4899", "#f97316", "#f59e0b", "#1
 /**
  * HELPERS
  */
-const fmt = (n) => new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 }).format(Math.abs(n));
-const fmtFull = (n) => `${n < 0 ? "-" : ""}฿${fmt(n)}`;
+const fmt = (n, isUsd) => {
+  const val = isUsd ? n / 36 : n;
+  return new Intl.NumberFormat("th-TH", { 
+    maximumFractionDigits: isUsd ? 2 : 0,
+    minimumFractionDigits: isUsd ? 2 : 0 
+  }).format(Math.abs(val));
+};
+
+const fmtFull = (n, isUsd) => {
+  const symbol = isUsd ? "$" : "฿";
+  return `${n < 0 ? "-" : ""}${symbol}${fmt(n, isUsd)}`;
+};
+
 const getMonth = (d) => d.slice(0, 7);
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -96,7 +107,7 @@ const styles = {
 /**
  * UI COMPONENTS
  */
-function StatCard({ label, value, color, isMain }) {
+function StatCard({ label, value, color, isMain, isUsd }) {
   return (
     <div style={{ 
       ...styles.card, 
@@ -109,13 +120,13 @@ function StatCard({ label, value, color, isMain }) {
         {label}
       </div>
       <div style={{ fontSize: isMain ? "36px" : "22px", fontWeight: 800, color: isMain ? "#fff" : color, letterSpacing: "-1px" }}>
-        {fmtFull(value)}
+        {fmtFull(value, isUsd)}
       </div>
     </div>
   );
 }
 
-function TxRow({ tx, onDelete }) {
+function TxRow({ tx, onDelete, isUsd }) {
   const isInc = tx.type === "income";
   return (
     <div style={{ ...styles.card, display: "flex", alignItems: "center", gap: "16px", padding: "16px", marginBottom: "12px" }}>
@@ -128,7 +139,7 @@ function TxRow({ tx, onDelete }) {
       </div>
       <div style={{ textAlign: "right" }}>
         <div style={{ fontSize: "16px", fontWeight: 800, color: isInc ? COLORS.inc : COLORS.primary }}>
-          {isInc ? "+" : "-"}{fmt(tx.amount)}
+          {isInc ? "+" : "-"}{fmt(tx.amount, isUsd)}
         </div>
         <button onClick={() => onDelete(tx.id)} style={{ background: "none", border: "none", color: COLORS.exp, fontSize: "12px", cursor: "pointer", fontWeight: 600, padding: "4px 0" }}>ลบออก</button>
       </div>
@@ -136,7 +147,7 @@ function TxRow({ tx, onDelete }) {
   );
 }
 
-function AddForm({ onAdd, onClose }) {
+function AddForm({ onAdd, onClose, isUsd }) {
   const [type, setType] = useState("expense");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState(EXPENSE_CATS[0]);
@@ -149,7 +160,7 @@ function AddForm({ onAdd, onClose }) {
         <div style={{ width: "40px", height: "4px", background: COLORS.border, borderRadius: "2px", margin: "0 auto 24px" }} />
         
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-          <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 800 }}>บันทึกรายการใหม่</h2>
+          <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 800 }}>บันทึกรายการใหม่ ({isUsd ? "USD" : "THB"})</h2>
           <button onClick={onClose} style={{ border: "none", background: "rgba(0,0,0,0.04)", width: "32px", height: "32px", borderRadius: "16px", fontSize: "14px", cursor: "pointer" }}>✕</button>
         </div>
 
@@ -159,7 +170,7 @@ function AddForm({ onAdd, onClose }) {
         </div>
 
         <div style={{ position: "relative", marginBottom: "20px" }}>
-          <span style={{ position: "absolute", left: "20px", top: "50%", transform: "translateY(-50%)", fontSize: "24px", fontWeight: 800, color: accent }}>฿</span>
+          <span style={{ position: "absolute", left: "20px", top: "50%", transform: "translateY(-50%)", fontSize: "24px", fontWeight: 800, color: accent }}>{isUsd ? "$" : "฿"}</span>
           <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" style={{ ...styles.input, fontSize: "36px", fontWeight: 800, paddingLeft: "50px", height: "85px", color: accent }} />
         </div>
 
@@ -177,7 +188,13 @@ function AddForm({ onAdd, onClose }) {
         </div>
 
         <button 
-          onClick={() => { if (amount > 0) onAdd({ id: Date.now().toString(), type, amount: parseFloat(amount), category, date }); }} 
+          onClick={() => { 
+            if (amount > 0) {
+              const val = parseFloat(amount);
+              const finalAmount = isUsd ? val * 36 : val; // แปลงกลับเป็น THB เพื่อจัดเก็บ
+              onAdd({ id: Date.now().toString(), type, amount: finalAmount, category, date }); 
+            }
+          }} 
           style={{ ...styles.input, background: accent, color: "#fff", border: "none", fontWeight: 800, fontSize: "18px", height: "60px", boxShadow: `0 10px 15px -3px ${accent}4D` }}
         >
           บันทึกข้อมูล
@@ -195,6 +212,9 @@ export default function App() {
   const [tab, setTab] = useState("dashboard");
   const [showForm, setShowForm] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(() => today().slice(0, 7));
+  
+  // State สำหรับสกุลเงิน
+  const [isUsd, setIsUsd] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("expense-tracker-txs");
@@ -221,7 +241,9 @@ export default function App() {
 
   const expCatData = EXPENSE_CATS.map((cat) => ({
     name: cat,
-    value: monthTxs.filter((t) => t.type === "expense" && t.category === cat).reduce((s, t) => s + t.amount, 0),
+    value: isUsd 
+      ? monthTxs.filter((t) => t.type === "expense" && t.category === cat).reduce((s, t) => s + (t.amount / 36), 0)
+      : monthTxs.filter((t) => t.type === "expense" && t.category === cat).reduce((s, t) => s + t.amount, 0),
   })).filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
 
   // 6-Month Data for Stats
@@ -229,10 +251,12 @@ export default function App() {
     const d = new Date();
     d.setMonth(d.getMonth() - (5 - i));
     const m = getMonth(d.toISOString());
+    const rawInc = txs.filter((t) => getMonth(t.date) === m && t.type === "income").reduce((s, t) => s + t.amount, 0);
+    const rawExp = txs.filter((t) => getMonth(t.date) === m && t.type === "expense").reduce((s, t) => s + t.amount, 0);
     return {
       name: monthLabel(m),
-      รายรับ: txs.filter((t) => getMonth(t.date) === m && t.type === "income").reduce((s, t) => s + t.amount, 0),
-      รายจ่าย: txs.filter((t) => getMonth(t.date) === m && t.type === "expense").reduce((s, t) => s + t.amount, 0),
+      รายรับ: isUsd ? rawInc / 36 : rawInc,
+      รายจ่าย: isUsd ? rawExp / 36 : rawExp,
     };
   });
 
@@ -253,9 +277,30 @@ export default function App() {
             <img src={logoImg} alt="logo" style={{ height: "44px", width: "auto" }} />
             <div>
               <div style={{ fontSize: "12px", color: COLORS.textSub, fontWeight: 600 }}>{monthLabel(selectedMonth)}</div>
-          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 800, letterSpacing: "-0.5px", color: "#000000" }}></h1>            </div>
+              <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 800, letterSpacing: "-0.5px", color: "#000000" }}>Tracker</h1>
+            </div>
           </div>
-          <button onClick={() => setShowForm(true)} style={{ background: COLORS.primary, color: "#fff", border: "none", borderRadius: "14px", padding: "10px 20px", fontWeight: 700, fontSize: "14px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>+ เพิ่มรายการ</button>
+          
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            {/* ปุ่มเปลี่ยนสกุลเงินแบบ Modern */}
+            <button 
+              onClick={() => setIsUsd(!isUsd)}
+              style={{ 
+                background: "#fff", 
+                border: `1.5px solid ${COLORS.border}`, 
+                borderRadius: "12px", 
+                padding: "8px 12px", 
+                fontWeight: 700, 
+                fontSize: "12px", 
+                cursor: "pointer",
+                boxShadow: "0 2px 5px rgba(0,0,0,0.05)"
+              }}
+            >
+              {isUsd ? "🇺🇸 USD" : "🇹🇭 THB"}
+            </button>
+            
+            <button onClick={() => setShowForm(true)} style={{ background: COLORS.primary, color: "#fff", border: "none", borderRadius: "14px", padding: "10px 20px", fontWeight: 700, fontSize: "14px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>+ เพิ่มรายการ</button>
+          </div>
         </div>
 
         {/* NAVIGATION TAB */}
@@ -270,10 +315,10 @@ export default function App() {
         {/* --- TAB: DASHBOARD --- */}
         {tab === "dashboard" && (
           <div>
-            <StatCard label="ยอดเงินคงเหลือ" value={income - expense} isMain={true} />
+            <StatCard label="ยอดเงินคงเหลือ" value={income - expense} isMain={true} isUsd={isUsd} />
             <div style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
-              <StatCard label="รายรับ" value={income} color={COLORS.inc} />
-              <StatCard label="รายจ่าย" value={expense} color={COLORS.exp} />
+              <StatCard label="รายรับ" value={income} color={COLORS.inc} isUsd={isUsd} />
+              <StatCard label="รายจ่าย" value={expense} color={COLORS.exp} isUsd={isUsd} />
             </div>
             
             {expCatData.length > 0 && (
@@ -285,7 +330,7 @@ export default function App() {
                       <Pie data={expCatData} dataKey="value" innerRadius={55} outerRadius={75} paddingAngle={6}>
                         {expCatData.map((_, i) => (<Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} stroke="none" />))}
                       </Pie>
-                      <Tooltip />
+                      <Tooltip formatter={(val) => fmtFull(isUsd ? val * 36 : val, isUsd)} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -296,7 +341,7 @@ export default function App() {
               <div style={{ fontWeight: 800, fontSize: "18px" }}>รายการล่าสุด</div>
               <button onClick={() => setTab("transactions")} style={{ background: "none", border: "none", color: COLORS.textSub, fontSize: "13px", fontWeight: 600 }}>ดูทั้งหมด</button>
             </div>
-            {monthTxs.slice(0, 5).map((tx) => (<TxRow key={tx.id} tx={tx} onDelete={onDelete} />))}
+            {monthTxs.slice(0, 5).map((tx) => (<TxRow key={tx.id} tx={tx} onDelete={onDelete} isUsd={isUsd} />))}
           </div>
         )}
 
@@ -310,7 +355,7 @@ export default function App() {
                 <div style={{ fontWeight: 600 }}>ยังไม่มีข้อมูลในเดือนนี้</div>
               </div>
             ) : (
-              monthTxs.map((tx) => <TxRow key={tx.id} tx={tx} onDelete={onDelete} />)
+              monthTxs.map((tx) => <TxRow key={tx.id} tx={tx} onDelete={onDelete} isUsd={isUsd} />)
             )}
           </div>
         )}
@@ -319,14 +364,14 @@ export default function App() {
         {tab === "stats" && (
           <div>
             <div style={styles.card}>
-              <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "24px" }}>แนวโน้ม 6 เดือนย้อนหลัง</div>
+              <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "24px" }}>แนวโน้ม 6 เดือนย้อนหลัง ({isUsd ? "USD" : "THB"})</div>
               <div style={{ height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={historyData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 600 }} dy={10} />
                     <YAxis hide />
-                    <Tooltip cursor={{ fill: "#f8fafc" }} />
+                    <Tooltip cursor={{ fill: "#f8fafc" }} formatter={(val) => fmtFull(isUsd ? val * 36 : val, isUsd)} />
                     <Bar dataKey="รายรับ" fill={COLORS.inc} radius={[4, 4, 0, 0]} />
                     <Bar dataKey="รายจ่าย" fill={COLORS.exp} radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -345,7 +390,7 @@ export default function App() {
                       <span style={{ fontSize: "18px" }}>{CAT_ICONS[d.name]}</span>
                       <span style={{ fontSize: "14px", fontWeight: 600 }}>{d.name}</span>
                     </div>
-                    <span style={{ fontWeight: 800, fontSize: "14px" }}>{fmtFull(d.value)}</span>
+                    <span style={{ fontWeight: 800, fontSize: "14px" }}>{isUsd ? "$" : "฿"}{fmt(isUsd ? d.value * 36 : d.value, isUsd)}</span>
                   </div>
                 ))
               )}
@@ -354,7 +399,7 @@ export default function App() {
         )}
 
         {/* ADD FORM MODAL */}
-        {showForm && <AddForm onAdd={onAdd} onClose={() => setShowForm(false)} />}
+        {showForm && <AddForm onAdd={onAdd} onClose={() => setShowForm(false)} isUsd={isUsd} />}
       </div>
     </div>
   );
