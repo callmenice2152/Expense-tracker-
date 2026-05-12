@@ -260,6 +260,18 @@ export default function App() {
     };
   });
 
+  // +++ เพิ่ม Logic จัดกลุ่มรายวันสำหรับหน้า Transactions +++
+  const groupedTxs = monthTxs.reduce((acc, tx) => {
+    if (!acc[tx.date]) {
+      acc[tx.date] = { items: [], dailyBalance: 0 };
+    }
+    acc[tx.date].items.push(tx);
+    acc[tx.date].dailyBalance += (tx.type === "income" ? tx.amount : -tx.amount);
+    return acc;
+  }, {});
+  
+  const sortedDates = Object.keys(groupedTxs).sort((a, b) => new Date(b) - new Date(a));
+
   return (
     <div style={styles.app}>
       <style>{`
@@ -282,7 +294,6 @@ export default function App() {
           </div>
           
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            {/* ปุ่มเปลี่ยนสกุลเงินแบบ Modern */}
             <button 
               onClick={() => setIsUsd(!isUsd)}
               style={{ 
@@ -345,17 +356,44 @@ export default function App() {
           </div>
         )}
 
-        {/* --- TAB: TRANSACTIONS --- */}
+        {/* --- TAB: TRANSACTIONS (แบบแสดงรายวัน) --- */}
         {tab === "transactions" && (
           <div>
-            <div style={{ fontWeight: 800, fontSize: "20px", marginBottom: "20px" }}>ประวัติรายการทั้งหมด</div>
-            {monthTxs.length === 0 ? (
+            <div style={{ fontWeight: 800, fontSize: "20px", marginBottom: "20px" }}>ประวัติรายวัน</div>
+            {sortedDates.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px 20px", color: COLORS.textSub }}>
                 <div style={{ fontSize: "40px", marginBottom: "16px" }}>☁️</div>
                 <div style={{ fontWeight: 600 }}>ยังไม่มีข้อมูลในเดือนนี้</div>
               </div>
             ) : (
-              monthTxs.map((tx) => <TxRow key={tx.id} tx={tx} onDelete={onDelete} isUsd={isUsd} />)
+              sortedDates.map((date) => (
+                <div key={date} style={{ marginBottom: "24px" }}>
+                  {/* แถบสรุปรายวัน (Daily Bar) */}
+                  <div style={{ 
+                    display: "flex", 
+                    justifyContent: "space-between", 
+                    alignItems: "center", 
+                    padding: "10px 16px", 
+                    background: "#f1f5f9", 
+                    borderRadius: "12px", 
+                    marginBottom: "12px" 
+                  }}>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: COLORS.textSub }}>{date}</div>
+                    <div style={{ 
+                      fontSize: "13px", 
+                      fontWeight: 800, 
+                      color: groupedTxs[date].dailyBalance >= 0 ? COLORS.inc : COLORS.primary 
+                    }}>
+                      {groupedTxs[date].dailyBalance >= 0 ? "กำไร: " : "ใช้ไป: "}
+                      {fmtFull(groupedTxs[date].dailyBalance, isUsd)}
+                    </div>
+                  </div>
+                  {/* รายการในวันนั้น */}
+                  {groupedTxs[date].items.map((tx) => (
+                    <TxRow key={tx.id} tx={tx} onDelete={onDelete} isUsd={isUsd} />
+                  ))}
+                </div>
+              ))
             )}
           </div>
         )}
